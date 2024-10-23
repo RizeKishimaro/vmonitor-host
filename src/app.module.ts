@@ -5,8 +5,8 @@ import { ServerManagerModule } from './server-manager/server-manager.module';
 import { SshModule } from './ssh/ssh.module';
 
 @Module({
-  imports: [ServerManagerModule, SshModule,],
+  imports: [ServerManagerModule, SshModule],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule {}
