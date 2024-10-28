@@ -1,7 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { exec } from 'child_process';
-import { Observable, from, interval } from 'rxjs';
-import { map, switchMap } from 'rxjs/operators';
 import * as os from 'os-utils';
 import * as netos from 'os';
 
