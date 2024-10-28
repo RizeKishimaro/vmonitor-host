@@ -4,13 +4,15 @@ import { exec } from 'child_process';
 import { Observable, from, interval } from 'rxjs';
 import { map, switchMap } from 'rxjs/operators';
 import * as os from 'os-utils';
+import { PrismaService } from './utils/prisma/prisma.service';
+import { Cron } from '@nestjs/schedule';
 
 @Injectable()
 export class AppService {
+  constructor(private prisma: PrismaService) { }
   private prevRxBytes = 0;
   private prevTxBytes = 0;
-  private readonly interfaceName = 'wlan0'; // Change this if using a different interface
-
+  private readonly interfaceName = 'wlan0';
   private async getNetworkSpeed(): Promise<{ rxbytes: number; txbytes: number }> {
     return new Promise((resolve, reject) => {
       exec('cat /proc/net/dev', (error, stdout) => {
@@ -36,9 +38,9 @@ export class AppService {
   private formatSpeed(bytes: number): { value: string; unit: string } {
     const kbps = bytes / 1024; // Convert to KBps
     if (kbps > 1000) {
-      return { value: (kbps / 1024).toFixed(2), unit: 'MBps' }; // Convert to MBps
+      return { value: (kbps / 1024).toFixed(2), unit: 'MBps' };
     }
-    return { value: kbps.toFixed(2), unit: 'KBps' }; // Stay in KBps
+    return { value: kbps.toFixed(2), unit: 'KBps' };
   }
 
 
@@ -46,22 +48,19 @@ export class AppService {
     try {
       const { rxbytes, txbytes } = await this.getNetworkSpeed();
 
-      // Calculate the download and upload speed
       const downloadSpeedBytes = rxbytes - this.prevRxBytes;
       const uploadSpeedBytes = txbytes - this.prevTxBytes;
 
-      // Update the previous values for the next calculation
       this.prevRxBytes = rxbytes;
       this.prevTxBytes = txbytes;
 
-      // Format the result
       return {
         downloadSpeed: downloadSpeedBytes,
         uploadSpeed: uploadSpeedBytes,
       };
     } catch (error) {
       console.error('Error logging network speed:', error);
-      throw error; // rethrow the error to be handled elsewhere
+      throw error;
     }
   }
 
@@ -144,6 +143,201 @@ export class AppService {
         freeMemory,
       });
     });
+  }
+
+  formatSpeedToString(speedInBytes) {
+    // Convert bytes to KiB
+    const speedInKiB = Math.floor(speedInBytes / 1024); // Use Math.floor for integer result
+    return speedInKiB;
+  }
+
+
+  @Cron('*/3 * * * * *')
+
+
+  async logUsage(serverId = "bd4cc391-6131-4cbe-bf62-3b838ff0c868"): Promise<void> {
+    const cpuUsage = await this.getCpuUsage();
+    const memoryUsage = await this.getMemoryUsage();
+    const networkData = await this.logNetworkSpeed();
+
+    const { usedMemory } = memoryUsage;
+    const downloadSpeed = networkData.downloadSpeed; // in bytes
+    const uploadSpeed = networkData.uploadSpeed;     // in bytes
+
+    // Format speeds for logging as integers in KiB
+    const formattedDownloadSpeed = this.formatSpeedToString(downloadSpeed);
+    const formattedUploadSpeed = this.formatSpeedToString(uploadSpeed);
+
+    // Log the speeds
+    console.log(`Formatted Download Speed: ${formattedDownloadSpeed} KiB`);
+    console.log(`Formatted Upload Speed: ${formattedUploadSpeed} KiB`);
+
+    // Check thresholds for database insertion
+    const exceeds2MiB = downloadSpeed > 2 * 1024 * 1024 || uploadSpeed > 2 * 1024 * 1024;
+    const exceeds70CPU = cpuUsage > 70; // Check CPU usage
+    const exceeds70Memory = usedMemory > 70; // Check Memory usage
+
+    // Insert data into the database if thresholds are exceeded
+    if (exceeds2MiB) {
+      console.log('Thresholds exceeded. Inserting data into the database...');
+      const previousNetworkData = await this.prisma.networkInfo.findFirst({
+        where: {
+          server_id: serverId,
+          end_time: null,
+        },
+        orderBy: {
+          id: 'desc',
+        }
+      })
+      if (previousNetworkData) {
+        await this.prisma.networkInfo.update({
+          where: {
+            id: previousNetworkData.id
+          },
+          data: {
+            end_time: new Date(),
+          }
+        })
+      } else {
+        await this.prisma.networkInfo.create({
+          data: {
+            server_id: serverId,
+            download_network_usage: downloadSpeed, // Store the original bytes value
+            upload_network_usage: uploadSpeed, // Optional: Store formatted value
+            start_time: new Date(),
+          },
+        });
+
+      }
+      // await this.prisma.cPUinfo.create({
+      //   data: {
+      //     server_id: serverId,
+      //     cpu_usage: cpuUsage,
+      //     start_time: new Date(),
+      //   },
+      // });
+      // await this.prisma.rAMinfo.create({
+      //   data: {
+      //     server_id: serverId,
+      //     ram_usage: usedMemory,
+      //     start_time: new Date(),
+      //   },
+      // });
+      // await this.prisma.networkInfo.create({
+      //   data: {
+      //     server_id: serverId,
+      //     download_network_usage: downloadSpeed, // Store the original bytes value
+      //     upload_network_usage: uploadSpeed, // Optional: Store formatted value
+      //     start_time: new Date(),
+      //   },
+      // });
+    }
+    if (exceeds70CPU || exceeds70Memory) {
+      console.log('Thresholds exceeded. Inserting data into the database...');
+      const previousCPUData = await this.prisma.cPUinfo.findFirst({
+        where: {
+          server_id: serverId,
+          end_time: null,
+        },
+        orderBy: {
+          id: 'desc',
+        }
+      });
+      const previousRAMData = await this.prisma.rAMinfo.findFirst({
+        where: {
+          server_id: serverId,
+          end_time: null,
+        },
+        orderBy: {
+          id: 'desc',
+        }
+      })
+      if (!previousCPUData || !previousRAMData) {
+        await this.prisma.cPUinfo.create({
+          data: {
+            server_id: serverId,
+            cpu_usage: cpuUsage,
+            start_time: new Date(),
+          },
+        });
+        await this.prisma.rAMinfo.create({
+          data: {
+            server_id: serverId,
+            ram_usage: usedMemory,
+            start_time: new Date(),
+          },
+        });
+      } else {
+        await this.prisma.cPUinfo.update({
+          where: {
+            id: previousCPUData.id
+          },
+          data: {
+            cpu_usage: cpuUsage,
+            end_time: new Date(),
+          }
+        })
+        await this.prisma.rAMinfo.update({
+          where: {
+            id: previousRAMData.id
+          },
+          data: {
+            ram_usage: usedMemory,
+            end_time: new Date(),
+          }
+        })
+      }
+    }
+
+    // Optionally handle the end of usage records if needed
+    // await this.endUsageIfNeeded(serverId, downloadSpeed < 2 * 1024 * 1024 && uploadSpeed < 2 * 1024 * 1024);
+  }
+  private async endUsageIfNeeded(serverId: string, allBelow2MiB: boolean): Promise<void> {
+    if (allBelow2MiB) {
+      const activeCpuRecord = await this.prisma.cPUinfo.findFirst({
+        where: {
+          server_id: serverId,
+          end_time: null,
+        },
+      });
+
+      const activeRamRecord = await this.prisma.rAMinfo.findFirst({
+        where: {
+          server_id: serverId,
+          end_time: null,
+        },
+      });
+
+      const activeNetworkRecord = await this.prisma.networkInfo.findFirst({
+        where: {
+          server_id: serverId,
+          end_time: null,
+        },
+      });
+
+      const now = new Date();
+
+      if (activeCpuRecord) {
+        await this.prisma.cPUinfo.update({
+          where: { id: activeCpuRecord.id },
+          data: { end_time: now },
+        });
+      }
+
+      if (activeRamRecord) {
+        await this.prisma.rAMinfo.update({
+          where: { id: activeRamRecord.id },
+          data: { end_time: now },
+        });
+      }
+
+      if (activeNetworkRecord) {
+        await this.prisma.networkInfo.update({
+          where: { id: activeNetworkRecord.id },
+          data: { end_time: now },
+        });
+      }
+    }
   }
 }
 

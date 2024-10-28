@@ -1,5 +1,6 @@
 import { SshService } from './ssh.service';
 import { WebSocketGateway, SubscribeMessage, OnGatewayInit, WebSocketServer } from '@nestjs/websockets';
+import { readFileSync } from 'fs';
 import { Server, Socket } from 'socket.io';
 import { Client } from 'ssh2';
 
@@ -43,10 +44,11 @@ export class SshGateway {
         });
       });
     }).connect({
-      host: payload.host,
+      host: "3.1.44.86",
       port: 22,
-      username: payload.username,
-      password: payload.password, // Optional: Can use SSH keys as well.
+      username: "ec2-user",
+      // password: payload.password, // Optional: Can use SSH keys as well.
+      privateKey: readFileSync('./ssl/BOOM_INF_SWA.pem')
     });
     conn.on("error", (err) => {
       console.log(err)
