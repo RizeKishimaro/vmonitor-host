@@ -1,9 +1,10 @@
 import { Controller, Sse, Res, Get } from '@nestjs/common';
 import { AppService } from './app.service';
-import { interval, Observable } from 'rxjs';
-import { Response } from 'express';
-import { map } from 'rxjs/operators';
+import { Observable } from 'rxjs';
 
+import { IsPublic } from './utils/decorators/Public.decorator';
+
+@IsPublic()
 @Controller()
 export class AppController {
   constructor(private readonly appService: AppService) {}

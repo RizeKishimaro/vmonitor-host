@@ -60,6 +60,7 @@ export class SshGateway {
     conn.on('error', (err) => {
       console.log(err);
       client.emit('data', `Error connecting to SSH server: ${err.message}`);
+
     });
   }
 }

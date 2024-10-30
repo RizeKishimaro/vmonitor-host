@@ -1,0 +1,76 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         Int      @id @default(autoincrement())
+  name       String
+  email      String   @unique // Ensure email is unique
+  password   String
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt()
+  Server     Server[]
+}
+
+model SystemDownTime {
+  id         Int       @id @default(autoincrement())
+  start_time DateTime
+  end_time   DateTime?
+}
+
+model Server {
+  id           String        @id @default(uuid())
+  name         String
+  user         User          @relation(fields: [user_id], references: [id])
+  user_id      Int
+  server_url   String
+  ssh_username String?
+  ssh_password String?
+  ssh_key      String?
+  created_at   DateTime      @default(now())
+  api_key      String
+  updated_at   DateTime      @updatedAt()
+  CPUinfo      CPUinfo[]
+  RAMinfo      RAMinfo[]
+  NetworkInfo  NetworkInfo[]
+}
+
+model CPUinfo {
+  id         String    @id @default(uuid())
+  server_id  String
+  cpu_usage  Float
+  start_time DateTime
+  end_time   DateTime?
+  Server     Server    @relation(fields: [server_id], references: [id])
+}
+
+model RAMinfo {
+  id         String    @id @default(uuid())
+  server_id  String
+  ram_usage  Float
+  start_time DateTime
+  end_time   DateTime?
+  Server     Server    @relation(fields: [server_id], references: [id])
+}
+
+model NetworkInfo {
+  id                     String    @id @default(uuid())
+  server_id              String
+  download_network_usage BigInt
+  upload_network_usage   BigInt
+  start_time             DateTime
+  end_time               DateTime?
+  Server                 Server    @relation(fields: [server_id], references: [id])
+}

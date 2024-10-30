@@ -1,10 +1,15 @@
-import { Controller, Sse } from '@nestjs/common';
+import { Controller, Get, Sse } from '@nestjs/common';
 import { ServerManagerService } from './server-manager.service';
 import { interval, map, Observable } from 'rxjs';
+import { ApiBearerAuth, ApiSecurity } from '@nestjs/swagger';
+import { IsPublic } from 'src/utils/decorators/Public.decorator';
 
 interface LogMessageEvent {
   data: string;
 }
+@ApiSecurity("X-API-KEY")
+@IsPublic()
+@ApiBearerAuth()
 @Controller('server-manager')
 export class ServerManagerController {
   constructor(private readonly serverManagerService: ServerManagerService) {}
@@ -33,5 +38,10 @@ export class ServerManagerController {
   @Sse('nginx')
   sendLogs(): Observable<Partial<MessageEvent>> {
     return this.serverManagerService.streamLogs();
+  }
+  @Get("os-info")
+  getOsInfo() {
+    console.log("rerender")
+    return this.serverManagerService.getOsInfo();
   }
 }
