@@ -1,9 +1,10 @@
-
 import { Injectable } from '@nestjs/common';
 import { exec } from 'child_process';
 import { Observable, from, interval } from 'rxjs';
 import { map, switchMap } from 'rxjs/operators';
 import * as os from 'os-utils';
+
+import * as netos from 'os';
 import { PrismaService } from './utils/prisma/prisma.service';
 import { Cron } from '@nestjs/schedule';
 
@@ -12,7 +13,32 @@ export class AppService {
   constructor(private prisma: PrismaService) { }
   private prevRxBytes = 0;
   private prevTxBytes = 0;
-  private readonly interfaceName = 'wlan0';
+  private readonly interfaceName: string;
+
+  constructor() {
+    this.interfaceName = this.getNetworkInterface(); // Dynamically set the network interface
+  }
+  // Dynamically select the first active non-internal network interface
+  private getNetworkInterface(): string {
+    const networkInterfaces = netos.networkInterfaces();
+    for (const [name, interfaces] of Object.entries(networkInterfaces)) {
+      const activeInterface = interfaces?.find(
+        (iface) => !iface.internal && iface.family === 'IPv4',
+      );
+      if (activeInterface) {
+        console.log(`Using network interface: ${name}`);
+        return name;
+      }
+    }
+
+    // Fallback if no suitable network interface is found
+    throw new Error('No active network interface found.');
+  }
+
+  private async getNetworkSpeed(): Promise<{
+    rxbytes: number;
+    txbytes: number;
+  }> {
   private async getNetworkSpeed(): Promise<{ rxbytes: number; txbytes: number }> {
     return new Promise((resolve, reject) => {
       exec('cat /proc/net/dev', (error, stdout) => {
@@ -42,7 +68,6 @@ export class AppService {
     }
     return { value: kbps.toFixed(2), unit: 'KBps' };
   }
-
 
   public async logNetworkSpeed(): Promise<any> {
     try {
@@ -76,7 +101,10 @@ export class AppService {
     const partitions: any[] = [];
 
     // Use `df` command to get the list of partitions
-    const command = os.platform() === 'win32' ? 'wmic logicaldisk get name, size, freespace' : 'df -h';
+    const command =
+      os.platform() === 'win32'
+        ? 'wmic logicaldisk get name, size, freespace'
+        : 'df -h';
 
     return new Promise((resolve, reject) => {
       exec(command, async (error, stdout) => {
@@ -91,12 +119,19 @@ export class AppService {
           const parts = lines[i].trim().split(/\s+/);
           if (os.platform() === 'win32') {
             const filesystem = parts[0];
-            const size = (parseInt(parts[1], 10) / (1024 ** 3)).toFixed(2); // Convert to GB
-            const available = (parseInt(parts[2], 10) / (1024 ** 3)).toFixed(2); // Convert to GB
-            const used = (parseInt(parts[1], 10) - parseInt(parts[2], 10)) / (1024 ** 3); // Calculate used in GB
+            const size = (parseInt(parts[1], 10) / 1024 ** 3).toFixed(2); // Convert to GB
+            const available = (parseInt(parts[2], 10) / 1024 ** 3).toFixed(2); // Convert to GB
+            const used =
+              (parseInt(parts[1], 10) - parseInt(parts[2], 10)) / 1024 ** 3; // Calculate used in GB
             const usePercentage = `${(((parseInt(parts[1], 10) - parseInt(parts[2], 10)) / parseInt(parts[1], 10)) * 100).toFixed(2)}%)`; // Calculate use percentage
 
-            partitions.push({ filesystem, size, used: used.toFixed(2), available, usePercentage });
+            partitions.push({
+              filesystem,
+              size,
+              used: used.toFixed(2),
+              available,
+              usePercentage,
+            });
           } else {
             const filesystem = parts[0];
             const size = this.convertSizeToGB(parts[1]); // Convert to GB
@@ -104,7 +139,13 @@ export class AppService {
             const available = this.convertSizeToGB(parts[3]); // Convert to GB
             const usePercentage = parts[4]; // Already in human-readable form
 
-            partitions.push({ filesystem, size, used, available, usePercentage });
+            partitions.push({
+              filesystem,
+              size,
+              used,
+              available,
+              usePercentage,
+            });
           }
         }
 
@@ -124,14 +165,18 @@ export class AppService {
       case 'M':
         return number / 1024; // Convert MB to GB
       case 'K':
-        return number / (1024 ** 2); // Convert KB to GB
+        return number / 1024 ** 2; // Convert KB to GB
       case 'T':
         return number * 1024; // Convert TB to GB
       default:
         return 0; // Unknown unit
     }
   }
-  async getMemoryUsage(): Promise<{ usedMemory: number; totalMemory: number; freeMemory: number }> {
+  async getMemoryUsage(): Promise<{
+    usedMemory: number;
+    totalMemory: number;
+    freeMemory: number;
+  }> {
     return new Promise((resolve) => {
       const totalMemory = os.totalmem(); // Total memory in bytes
       const freeMemory = os.freemem(); // Free memory in bytes
@@ -340,4 +385,3 @@ export class AppService {
     }
   }
 }
-

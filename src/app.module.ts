@@ -12,6 +12,7 @@ import { PrismaService } from './utils/prisma/prisma.service';
 import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
+
   imports: [
     ScheduleModule.forRoot(),
     JwtModule.register({
@@ -34,4 +35,4 @@ import { ScheduleModule } from '@nestjs/schedule';
     PrismaService
   ],
 })
-export class AppModule { }
+export class AppModule {}
