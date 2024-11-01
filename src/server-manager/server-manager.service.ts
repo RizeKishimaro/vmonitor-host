@@ -6,6 +6,7 @@ import * as fs from 'fs';
 import * as readline from 'readline';
 import * as os from 'os';
 import * as publicIp from 'public-ip';
+import { PrismaService } from 'src/utils/prisma/prisma.service';
 
 interface LogMessageEvent {
   data: string;
@@ -13,7 +14,7 @@ interface LogMessageEvent {
 @Injectable()
 export class ServerManagerService {
   private logStream$ = new Subject<LogMessageEvent>();
-  constructor() {
+  constructor(private readonly prismaService: PrismaService) {
     this.watchLogFile();
   }
   private path = '/etc/os-release';
@@ -40,9 +41,14 @@ export class ServerManagerService {
   streamLogs(): Observable<LogMessageEvent> {
     return this.logStream$.asObservable();
   }
-  async checkGoogleStatus(): Promise<any> {
+  async checkServerStatus(serverId: string): Promise<any> {
     try {
-      const response = await axios.get('http://localhost', {
+      const serverUrl = await this.prismaService.server.findFirst({
+        where: {
+          id: serverId
+        }
+      })
+      const response = await axios.get('https://localhost', {
         timeout: 20000,
         insecureHTTPParser: true,
         httpsAgent: new https.Agent({
@@ -93,7 +99,7 @@ export class ServerManagerService {
         };
       });
     }
-
+    const storageBlock = checkStorage()
     // Get internal IP address
     const internalIp = os.networkInterfaces();
     const internalIps = Object.values(internalIp)
@@ -110,6 +116,7 @@ export class ServerManagerService {
     return {
       statusCode: HttpStatus.OK,
       data: {
+        storageBlock,
         distro,
         osType,
         platform,
@@ -139,5 +146,52 @@ export class ServerManagerService {
       console.error('Error reading OS release file:', err);
       return 'Unknown Linux Distribution';
     }
+  }
+
+  async checkSystemDownTime() {
+    const servers = await this.prismaService.server.findMany({
+      select: {
+        server_url: true,
+      }
+    });
+
+    servers.forEach(async (server) => {
+      try {
+        const response = await axios.get(server.server_url, {
+          timeout: 20000,
+          insecureHTTPParser: true,
+          httpsAgent: new https.Agent({
+            rejectUnauthorized: false, // Bypass SSL verification
+          }),
+        });
+
+        // Return both status and response code
+        if (response.status === 200) {
+          return { status: 'Alive', responseCode: response.status };
+        }
+      } catch (error) {
+        console.log(error)
+        if (error.response) {
+          if (error.response.status === 502) {
+            return { status: 'Down', responseCode: 502 }; // 502 Bad Gateway
+          } else if (error.response.status === 403) {
+            return { status: 'Under Maintenance', responseCode: 403 }; // 403 Forbidden
+          } else {
+            return { status: 'Down', responseCode: error.response.status }; // Other error statuses
+          }
+        } else {
+          return { status: 'Down', responseCode: undefined }; // Network or other issues
+        }
+      }
+
+    })
+  }
+  async getFirstServer(userId: number) {
+    const firstServer = await this.prismaService.server.findFirst({
+      where: {
+        user_id: 1,
+      }
+    });
+    return firstServer
   }
 }

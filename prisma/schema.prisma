@@ -25,26 +25,32 @@ model User {
 }
 
 model SystemDownTime {
-  id         Int       @id @default(autoincrement())
-  start_time DateTime
-  end_time   DateTime?
+  id          Int        @id @default(autoincrement())
+  server      Server     @relation(fields: [server_id], references: [id])
+  server_id   String
+  start_time  DateTime
+  down_reason DownReason
+  end_time    DateTime?
 }
 
 model Server {
-  id           String        @id @default(uuid())
-  name         String
-  user         User          @relation(fields: [user_id], references: [id])
-  user_id      Int
-  server_url   String
-  ssh_username String?
-  ssh_password String?
-  ssh_key      String?
-  created_at   DateTime      @default(now())
-  api_key      String
-  updated_at   DateTime      @updatedAt()
-  CPUinfo      CPUinfo[]
-  RAMinfo      RAMinfo[]
-  NetworkInfo  NetworkInfo[]
+  id             String           @id @default(uuid())
+  name           String
+  user           User             @relation(fields: [user_id], references: [id])
+  user_id        Int
+  server_url     String
+  ssh_host       String
+  ssh_port       Int
+  ssh_username   String?
+  ssh_password   String?
+  ssh_key        String?
+  created_at     DateTime         @default(now())
+  api_key        String
+  updated_at     DateTime         @updatedAt()
+  CPUinfo        CPUinfo[]
+  RAMinfo        RAMinfo[]
+  NetworkInfo    NetworkInfo[]
+  SystemDownTime SystemDownTime[]
 }
 
 model CPUinfo {
@@ -73,4 +79,10 @@ model NetworkInfo {
   start_time             DateTime
   end_time               DateTime?
   Server                 Server    @relation(fields: [server_id], references: [id])
+}
+
+enum DownReason {
+  TIMEOUT
+  BAD_GATEWAY
+  UNDER_MAINTENANCE
 }

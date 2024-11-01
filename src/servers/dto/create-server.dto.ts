@@ -1,29 +1,33 @@
-import { IsOptional, IsString, IsInt, IsNotEmpty } from 'class-validator';
+
+import { IsNotEmpty, IsNumber, IsNumberString, IsString } from 'class-validator';
 
 export class CreateServerDto {
-  @IsString()
   @IsNotEmpty()
+  @IsString()
   name: string;
 
   @IsNotEmpty()
+  @IsNumberString()
   user_id: number;
 
-  @IsString()
   @IsNotEmpty()
+  @IsString()
   server_url: string;
+  @IsNotEmpty()
+  @IsString()
+  ssh_host: string;
 
-  @IsOptional()
+  @IsNotEmpty()
+  @IsNumberString()
+  ssh_port: number;
+
+
   @IsString()
   ssh_username?: string;
 
-  @IsOptional()
   @IsString()
   ssh_password?: string;
 
-  @IsOptional()
-  @IsString()
-  ssh_key?: string;
-
-
+  ssh_key?: Express.Multer.File;
 }
 

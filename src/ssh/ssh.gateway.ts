@@ -1,12 +1,15 @@
+
 import { SshService } from './ssh.service';
-import { WebSocketGateway, SubscribeMessage, OnGatewayInit, WebSocketServer } from '@nestjs/websockets';
+import { WebSocketGateway, SubscribeMessage, WebSocketServer } from '@nestjs/websockets';
 import { readFileSync } from 'fs';
 import { Server, Socket } from 'socket.io';
 import { Client } from 'ssh2';
+import { PrismaService } from 'src/utils/prisma/prisma.service'; // Assuming you're using Prisma for DB access
 
 @WebSocketGateway(3001, { cors: "*", namespace: "socket.io" })
 export class SshGateway {
-  constructor(private readonly sshService: SshService) { }
+  constructor(private readonly sshService: SshService, private readonly prisma: PrismaService) { }
+
   @WebSocketServer() server: Server;
 
   afterInit(server: Server) {
@@ -14,26 +17,47 @@ export class SshGateway {
   }
 
   @SubscribeMessage('start-ssh-session')
-  handleSshSession(client: Socket, payload: { host: string; username: string; password?: string }) {
-    console.log(payload)
+  async handleSshSession(client: Socket, payload: { serverId: string }) {
+    const serverData = await this.prisma.server.findUnique({
+      where: { id: payload.serverId },
+      select: {
+        ssh_username: true,
+        ssh_password: true,
+        ssh_key: true,
+        ssh_host: true,
+        ssh_port: true,
+      },
+    });
+
+    if (!serverData) {
+      client.emit('data', 'Server not found');
+      return;
+    }
+
     const conn = new Client();
+    const connectionOptions: any = {
+      host: serverData.ssh_host,
+      port: serverData.ssh_port,
+      username: serverData.ssh_username,
+    };
+
+    if (serverData.ssh_password) {
+      connectionOptions.password = serverData.ssh_password;
+    } else if (serverData.ssh_key) {
+      connectionOptions.privateKey = readFileSync(serverData.ssh_key); // Assuming ssh_key is a file path
+    }
 
     conn.on('ready', () => {
-      console.log('SSH Connection ready');
-
-      // Start a shell session
       conn.shell((err, stream) => {
         if (err) {
           client.emit('data', `Error starting shell: ${err.message}`);
           return;
         }
 
-        // Handle incoming data from the SSH session and send it to the client
         stream.on('data', (data) => {
           client.emit('data', data.toString());
         });
 
-        // Listen for incoming data from the client and send it to the SSH session
         client.on('input', (input: string) => {
           stream.write(input);
         });
@@ -43,17 +67,11 @@ export class SshGateway {
           conn.end();
         });
       });
-    }).connect({
-      host: "3.1.44.86",
-      port: 22,
-      username: "ec2-user",
-      // password: payload.password, // Optional: Can use SSH keys as well.
-      privateKey: readFileSync('./ssl/BOOM_INF_SWA.pem')
-    });
-    conn.on("error", (err) => {
-      console.log(err)
-      client.emit("data", `Error connecting to SSH server: ${err.message}`);
-    })
+    }).connect(connectionOptions);
 
+    conn.on("error", (err) => {
+      client.emit("data", `Error connecting to SSH server: ${err.message}`);
+    });
   }
 }
+

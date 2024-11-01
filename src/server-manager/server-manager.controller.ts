@@ -1,4 +1,4 @@
-import { Controller, Get, Sse } from '@nestjs/common';
+import { Controller, Get, Query, Sse } from '@nestjs/common';
 import { ServerManagerService } from './server-manager.service';
 import { interval, map, Observable } from 'rxjs';
 import { ApiBearerAuth, ApiSecurity } from '@nestjs/swagger';
@@ -14,11 +14,10 @@ interface LogMessageEvent {
 export class ServerManagerController {
   constructor(private readonly serverManagerService: ServerManagerService) { }
   @Sse('status')
-  sendGoogleStatus(): Observable<any> {
+  sendServerStatus(@Query("id") id: string): Observable<any> {
     return new Observable((observer) => {
-      // Emit Google status every 3 seconds
-      const googleStatusInterval = setInterval(async () => {
-        const { status, responseCode } = await this.serverManagerService.checkGoogleStatus();
+      const serverStatusInterval = setInterval(async () => {
+        const { status, responseCode } = await this.serverManagerService.checkServerStatus(id);
         const timestamp = new Date().toLocaleString(); // Current timestamp
 
         observer.next({
@@ -31,7 +30,7 @@ export class ServerManagerController {
       }, 25000);
 
       // Clear the interval when the observable is complete
-      return () => clearInterval(googleStatusInterval);
+      return () => clearInterval(serverStatusInterval);
     });
   }
   @Sse('nginx')
@@ -40,7 +39,10 @@ export class ServerManagerController {
   }
   @Get("os-info")
   getOsInfo() {
-    console.log("rerender")
     return this.serverManagerService.getOsInfo();
+  }
+  @Get("get-first-server")
+  getFirstServer(@Query("id") id: number) {
+    return this.serverManagerService.getFirstServer(1);
   }
 }
