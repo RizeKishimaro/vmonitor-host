@@ -7,12 +7,11 @@ import { PrismaService } from './utils/prisma/prisma.service';
 
 @Injectable()
 export class AppService {
-  constructor(private prisma: PrismaService) { }
   private prevRxBytes = 0;
   private prevTxBytes = 0;
   private readonly interfaceName: string;
 
-  constructor() {
+  constructor(private prisma: PrismaService) {
     this.interfaceName = this.getNetworkInterface(); // Dynamically set the network interface
   }
   // Dynamically select the first active non-internal network interface
@@ -32,10 +31,7 @@ export class AppService {
     throw new Error('No active network interface found.');
   }
 
-  private async getNetworkSpeed(): Promise<{
-    rxbytes: number;
-    txbytes: number;
-  }> {
+
   private async getNetworkSpeed(): Promise<{ rxbytes: number; txbytes: number }> {
     return new Promise((resolve, reject) => {
       exec('cat /proc/net/dev', (error, stdout) => {
