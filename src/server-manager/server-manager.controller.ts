@@ -18,6 +18,7 @@ export class ServerManagerController {
     return new Observable((observer) => {
       const serverStatusInterval = setInterval(async () => {
         const { status, responseCode } = await this.serverManagerService.checkServerStatus(id);
+
         const timestamp = new Date().toLocaleString(); // Current timestamp
 
         observer.next({

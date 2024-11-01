@@ -2,11 +2,12 @@
 import { SshService } from './ssh.service';
 import { WebSocketGateway, SubscribeMessage, WebSocketServer } from '@nestjs/websockets';
 import { readFileSync } from 'fs';
+
 import { Server, Socket } from 'socket.io';
 import { Client } from 'ssh2';
 import { PrismaService } from 'src/utils/prisma/prisma.service'; // Assuming you're using Prisma for DB access
 
-@WebSocketGateway(3001, { cors: "*", namespace: "socket.io" })
+@WebSocketGateway(3001, { cors: '*', namespace: 'socket.io' })
 export class SshGateway {
   constructor(private readonly sshService: SshService, private readonly prisma: PrismaService) { }
 
@@ -33,6 +34,7 @@ export class SshGateway {
       client.emit('data', 'Server not found');
       return;
     }
+
 
     const conn = new Client();
     const connectionOptions: any = {
@@ -65,12 +67,20 @@ export class SshGateway {
         stream.on('close', () => {
           client.emit('data', 'Session closed');
           conn.end();
+
         });
-      });
+      })
+        .connect({
+          host: serverData.ssh_host,
+          port: 22,
+          username: serverData.ssh_username,
+          password: serverData.ssh_password, // Optional: Can use SSH keys as well.
+        });
     }).connect(connectionOptions);
 
     conn.on("error", (err) => {
       client.emit("data", `Error connecting to SSH server: ${err.message}`);
+
     });
   }
 }

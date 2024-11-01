@@ -21,7 +21,6 @@ export class ServerManagerService {
   private watchLogFile() {
     const logFilePath = '/var/log/nginx/access.log'; // Update this to your Nginx log file path
 
-
     // Watch the file and listen for new lines
     fs.watchFile(logFilePath, { interval: 1000 }, (curr, prev) => {
       if (curr.size > prev.size) {
@@ -61,7 +60,7 @@ export class ServerManagerService {
         return { status: 'Alive', responseCode: response.status };
       }
     } catch (error) {
-      console.log(error)
+      console.log(error);
       if (error.response) {
         if (error.response.status === 502) {
           return { status: 'Down', responseCode: 502 }; // 502 Bad Gateway
