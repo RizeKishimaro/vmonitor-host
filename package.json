@@ -1,10 +1,10 @@
 {
   "name": "vmonitor",
-  "version": "0.0.1",
+  "version": "0.1.2",
   "description": "",
-  "author": "",
-  "private": true,
-  "license": "UNLICENSED",
+  "author": "RizeKishimaro",
+  "private": false,
+  "license": "LICENSE under MIT",
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
