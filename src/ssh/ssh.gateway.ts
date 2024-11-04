@@ -48,6 +48,13 @@ export class SshGateway {
     } else if (serverData.ssh_key) {
       connectionOptions.privateKey = readFileSync(serverData.ssh_key); // Assuming ssh_key is a file path
     }
+    conn.connect({
+      host: serverData.ssh_host,
+      port: 22,
+      username: serverData.ssh_username,
+      password: serverData.ssh_password, // Optional: Can use SSH keys as well.
+    });
+
 
     conn.on('ready', () => {
       conn.shell((err, stream) => {
@@ -70,13 +77,10 @@ export class SshGateway {
 
         });
       })
-        .connect({
-          host: serverData.ssh_host,
-          port: 22,
-          username: serverData.ssh_username,
-          password: serverData.ssh_password, // Optional: Can use SSH keys as well.
-        });
-    }).connect(connectionOptions);
+    });
+    conn.on("timeout", () => {
+      console.log("timeout")
+    })
 
     conn.on("error", (err) => {
       client.emit("data", `Error connecting to SSH server: ${err.message}`);

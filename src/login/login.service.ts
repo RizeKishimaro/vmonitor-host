@@ -9,7 +9,6 @@ export class LoginService {
   constructor(private readonly jwtService: JwtService, private readonly prisma: PrismaService) { }
 
   async validateUser(email: string, password: string): Promise<any> {
-    console.log(email)
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (user && await bcrypt.compare(password, user.password)) {
       return user;
@@ -28,7 +27,7 @@ export class LoginService {
   }
 
   async signup(name: string, email: string, password: string) {
-    // Check if the user already exists
+    console.log(name, email, password)
     const existingUser = await this.prisma.user.findUnique({ where: { email } });
     if (existingUser) {
       throw new Error('User already exists');
@@ -46,7 +45,14 @@ export class LoginService {
     });
 
     // Optionally return user information (excluding password)
-    return { id: newUser.id, name: newUser.name, email: newUser.email };
+    const payload = { email: newUser.email, sub: newUser.id };
+    const token = this.jwtService.sign(payload);
+    return {
+      statusCode: HttpStatus.OK,
+      message: "Successfully Login",
+      access_token: token,
+    };
+
   }
 }
 

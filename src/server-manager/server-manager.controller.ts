@@ -44,6 +44,6 @@ export class ServerManagerController {
   }
   @Get("get-first-server")
   getFirstServer(@Query("id") id: number) {
-    return this.serverManagerService.getFirstServer(1);
+    return this.serverManagerService.getFirstServer(id);
   }
 }

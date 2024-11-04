@@ -47,7 +47,7 @@ export class ServerManagerService {
           id: serverId
         }
       })
-      const response = await axios.get('https://localhost', {
+      const response = await axios.get(serverUrl.server_url, {
         timeout: 20000,
         insecureHTTPParser: true,
         httpsAgent: new https.Agent({
@@ -188,7 +188,7 @@ export class ServerManagerService {
   async getFirstServer(userId: number) {
     const firstServer = await this.prismaService.server.findFirst({
       where: {
-        user_id: 1,
+        user_id: userId,
       }
     });
     return firstServer

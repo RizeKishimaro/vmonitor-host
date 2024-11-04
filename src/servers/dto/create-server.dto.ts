@@ -7,7 +7,7 @@ export class CreateServerDto {
   name: string;
 
   @IsNotEmpty()
-  @IsNumberString()
+  @IsNumber()
   user_id: number;
 
   @IsNotEmpty()
@@ -18,7 +18,7 @@ export class CreateServerDto {
   ssh_host: string;
 
   @IsNotEmpty()
-  @IsNumberString()
+  @IsNumber()
   ssh_port: number;
 
 

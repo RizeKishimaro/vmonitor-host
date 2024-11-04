@@ -1,6 +1,6 @@
 
 
-import { Controller, Get, Post, Body, Param, Put, Delete, HttpCode, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put, Delete, HttpCode, UseInterceptors, UploadedFile, Query } from '@nestjs/common';
 import { ServersService } from './servers.service';
 import { CreateServerDto, UpdateServerDto } from './dto';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
@@ -28,8 +28,8 @@ export class ServersController {
     };
   }
   @Get()
-  async findAll() {
-    const servers = await this.serversService.findAll();
+  async findAll(@Query("id") id: number) {
+    const servers = await this.serversService.findAll(id);
     return {
       message: 'Servers fetched successfully',
       data: servers,
@@ -136,7 +136,6 @@ export class ServersController {
   }
 
   @Delete(':id')
-  @HttpCode(204)
   async remove(@Param('id') id: string) {
     await this.serversService.remove(id);
     return {

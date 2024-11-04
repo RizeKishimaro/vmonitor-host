@@ -1,5 +1,5 @@
 
-import { HttpStatus, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { CreateServerDto, UpdateServerDto } from './dto';
 import { PrismaService } from 'src/utils/prisma/prisma.service';
 import { randomBytes } from 'crypto';
@@ -59,6 +59,8 @@ export class ServersService {
         where: {
           server_id: id,
         },
+        take: 30
+
       });
 
 
@@ -77,6 +79,7 @@ export class ServersService {
         where: {
           server_id: id,
         },
+        take: 30
       });
 
 
@@ -96,6 +99,8 @@ export class ServersService {
         where: {
           server_id: id,
         },
+        take: 30
+
       });
 
       // Convert BigInt values to string
@@ -116,9 +121,16 @@ export class ServersService {
       throw new InternalServerErrorException("Something went wrong while fetching data. Please try again later.");
     }
   }
-  async findAll() {
+  async findAll(id: number) {
     try {
-      const servers = await this.prisma.server.findMany();
+      if (!id) {
+        throw new BadRequestException('User ID is required');
+      }
+      const servers = await this.prisma.server.findMany({
+        where: {
+          user_id: +id,
+        }
+      });
 
       const maskedServers = servers.map(server => {
         return {
@@ -131,6 +143,9 @@ export class ServersService {
       return maskedServers;
     } catch (error) {
       console.error('Error fetching servers:', error);
+      if (error instanceof HttpException) {
+        throw error
+      }
       throw new Error('Failed to retrieve servers. Please try again later.');
     }
   }

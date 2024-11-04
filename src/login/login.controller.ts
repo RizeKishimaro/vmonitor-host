@@ -31,7 +31,7 @@ export class LoginController {
     return {
       statusCode: HttpStatus.CREATED,
       message: 'User registered successfully',
-      user: newUser,
+      ...newUser
     };
   }
 }
